@@ -1,4 +1,4 @@
-use rand::{distributions::{Distribution, Uniform}, prelude::SliceRandom, rngs::ThreadRng, thread_rng, Rng};
+use rand::{distributions::{Distribution, Uniform}, prelude::SliceRandom, Rng};
 
 use crate::vector::VectorN;
 
@@ -55,26 +55,21 @@ impl<const N: usize> Butterfly<N> {
 #[derive(Debug, Clone)]
 pub struct WorldState<const N: usize, RngType: Rng> {
     population: Vec<Butterfly<N>>,
-    function: fn(VectorN<N>) -> f64,
     pub best_solution: VectorN<N>,
     pub best_solution_value: f64,
-    bounds: (f64, f64), // lower, upper
     random_generator: RngType,
-    fragrance_multiplier: f64, 
     fragrance_exponent_bounds: (f64, f64), // progresses with iterations
     local_search_chance: f64, // between 0 and 1
 }
 
-impl<const N: usize> WorldState<N, ThreadRng> {
-    pub fn new(pop_size: usize, function: fn(VectorN<N>) -> f64, bounds: (f64, f64), fragrance_multiplier: f64, fragrance_exponent_bounds: (f64, f64), local_search_chance: f64) -> Self {
+impl<const N: usize> WorldState<N, rand::rngs::StdRng> {
+    pub fn new(pop_size: usize, function: fn(VectorN<N>) -> f64, bounds: (f64, f64), fragrance_multiplier: f64, fragrance_exponent_bounds: (f64, f64), local_search_chance: f64, mut random_source: rand::rngs::StdRng) -> Self {
         if bounds.0 >= bounds.1 {
             panic!("Incorrect order of bounds or zero size");
         }
         if fragrance_exponent_bounds.0 > fragrance_exponent_bounds.1 {
             panic!("Incorrect order of fragrance bounds");
         }
-
-        let mut random_source = thread_rng();
 
         let mut butterflies = Vec::with_capacity(pop_size);
 
@@ -92,9 +87,9 @@ impl<const N: usize> WorldState<N, ThreadRng> {
         
         return Self {
             population: butterflies,
-            function, best_solution, best_solution_value, bounds,
+            best_solution, best_solution_value,
             random_generator: random_source,
-            fragrance_multiplier, fragrance_exponent_bounds, local_search_chance
+            fragrance_exponent_bounds, local_search_chance
         };
     }
 
