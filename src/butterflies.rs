@@ -63,7 +63,13 @@ pub struct WorldState<const N: usize, RngType: Rng> {
 }
 
 impl<const N: usize> WorldState<N, rand::rngs::StdRng> {
-    pub fn new(pop_size: usize, function: fn(VectorN<N>) -> f64, bounds: (f64, f64), fragrance_multiplier: f64, fragrance_exponent_bounds: (f64, f64), local_search_chance: f64, mut random_source: rand::rngs::StdRng) -> Self {
+    pub fn new(pop_size: usize, 
+               function: fn(VectorN<N>) -> f64, 
+               bounds: (f64, f64), 
+               fragrance_multiplier: f64, 
+               fragrance_exponent_bounds: (f64, f64), 
+               local_search_chance: f64, 
+               mut random_source: rand::rngs::StdRng) -> Self {
         if bounds.0 >= bounds.1 {
             panic!("Incorrect order of bounds or zero size");
         }

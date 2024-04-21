@@ -1,12 +1,13 @@
 #![feature(generic_arg_infer)]
 #![allow(clippy::needless_return)]
 
-use swarm_optimizers::bats::WorldState;
+use swarm_optimizers::{bats, butterflies};
 
 const FN_SIZE: usize = 20;
 
 use std::ops::AddAssign;
 use clap::{Parser, Subcommand};
+use rand::{rngs::StdRng, thread_rng, SeedableRng};
 
 #[derive(Parser, Clone, Debug)]
 struct Config {
@@ -15,6 +16,7 @@ struct Config {
 
 	#[arg(long = "try-count")]
 	try_count: Option<usize>,
+	
 	#[command(subcommand)]
 	command: Option<OptimizationAlgorithmCommand>,
 }
@@ -28,7 +30,7 @@ enum OptimizationAlgorithmCommand {
 		#[arg(long = "bat-count")]
 		bat_count: usize,
 		
-		#[arg(long = "freqency-left-bound")]
+		#[arg(long = "frequency-left-bound")]
 		frequency_left_bound: f64,
 
 		#[arg(long = "frequency-right-bound")]
@@ -49,27 +51,35 @@ enum OptimizationAlgorithmCommand {
 
 	Butterflies {
 		#[arg(long = "butterfly-num-iters")]
-		bat_num_iters: usize,
-
-		#[arg(long = "butterfly-count")]
-		bat_count: usize,
-
-		/*#[command(subcommand)]
-		command: Option<BatOptimizationTypeCommand>*/ // I can't do that, as it breaks further code :(((
-
-		// [TODO] Add more
-	}
-}
-
-#[derive(Subcommand, Clone, Debug)]
-enum BatOptimizationTypeCommand {
-	Basic {
-		#[arg(long = "butterfly-num-iters")]
 		butterfly_num_iters: usize,
 
 		#[arg(long = "butterfly-count")]
 		butterfly_count: usize,
 
+		#[arg(long = "fragrance-multiplier")]
+		fragrance_multiplier: f64,
+
+		#[arg(long = "fragrance-exponent-left-bound")]
+		fragrance_exponent_left_bound: f64,
+
+		#[arg(long = "fragrance-exponent-right-bound")]
+		fragrance_exponent_right_bound: f64,
+
+		#[arg(long = "local-search-chance")]
+		local_search_chance: f64
+
+		/*#[command(subcommand)]
+		command: Option<BatOptimizationTypeCommand>*/ // I can't do that, as it breaks further code :(((
+	}
+}
+
+/**
+  Will this be used, or will this become redundant?
+ */
+#[derive(Subcommand, Clone, Debug)]
+enum BatOptimizationTypeCommand {
+	Basic {
+		
 	},
 
 	Adaptive {
@@ -166,7 +176,7 @@ fn main() {
 											 initial_loudness , 
 											 loudness_cooling_rate}
 				) => {
-					let world = WorldState::new(
+					let world = bats::WorldState::new(
 						bat_count,
 						func,
 						bounds,
@@ -174,7 +184,8 @@ fn main() {
 						initial_pulse_rate,
 						pulse_rate_factor,
 						initial_loudness, 
-						loudness_cooling_rate
+						loudness_cooling_rate,
+						StdRng::from_rng(thread_rng()).unwrap()
 					);
 					for _ in 0..num_cpus::get() {
 						let mut thread_world = world.clone();
@@ -189,8 +200,35 @@ fn main() {
 						}));
 					}
 				},
-				Some(OptimizationAlgorithmCommand::Butterflies { bat_num_iters, bat_count }) => {
-					panic!("Not implemented");
+
+				Some(OptimizationAlgorithmCommand::Butterflies { butterfly_num_iters, 
+																 butterfly_count, 
+																 fragrance_multiplier, 
+																 fragrance_exponent_left_bound,
+																 fragrance_exponent_right_bound, 
+																 local_search_chance 
+				}) => {
+					let world = butterflies::WorldState::new(
+						butterfly_count,
+						func,
+						bounds,
+						fragrance_multiplier,
+						(fragrance_exponent_left_bound, fragrance_exponent_right_bound),
+						local_search_chance,
+						StdRng::from_rng(thread_rng()).unwrap()
+					);
+					for _ in 0..num_cpus::get() {
+						let mut thread_world = world.clone();
+						threads.push(std::thread::spawn(move || {
+							let mut run_stats = BatchRunData::new();
+							for _ in 0..tries_per_thread {
+								thread_world.do_all_iterations(butterfly_num_iters);
+								run_stats += func(thread_world.best_solution);
+								thread_world.reset();
+							}
+							return run_stats;
+						}));
+					}
 				},
 				None => {
 					println!("No algorithm to run! Exiting.");
@@ -211,7 +249,7 @@ fn main() {
 			match config.command {
 				Some(OptimizationAlgorithmCommand::Bats { bat_num_iters, bat_count, frequency_left_bound, frequency_right_bound, initial_pulse_rate, pulse_rate_factor, initial_loudness, loudness_cooling_rate }) => {
 					threads.push(std::thread::spawn(move || {
-						let mut world = WorldState::new(
+						let mut world = bats::WorldState::new(
 							bat_count,
 							function,
 							bounds,
@@ -219,14 +257,34 @@ fn main() {
 							initial_pulse_rate,
 							pulse_rate_factor,
 							initial_loudness, 
-							loudness_cooling_rate
+							loudness_cooling_rate,
+							StdRng::from_rng(thread_rng()).unwrap()
 						);
 						world.do_all_iterations(bat_num_iters);
 						println!("{}: Found optimum at {:?} = {}", function_name, world.best_solution.coordinates, function(world.best_solution));
 					}));
 				},
-				Some(OptimizationAlgorithmCommand::Butterflies { bat_num_iters, bat_count }) => {
-					panic!("Not implemented");
+				Some(OptimizationAlgorithmCommand::Butterflies { 
+					butterfly_num_iters, 
+					butterfly_count, 
+					fragrance_multiplier, 
+					fragrance_exponent_left_bound,
+					fragrance_exponent_right_bound, 
+					local_search_chance 
+				}) => {
+					threads.push(std::thread::spawn(move || {
+						let mut world = butterflies::WorldState::new(
+							butterfly_count,
+							function,
+							bounds,
+							fragrance_multiplier,
+							(fragrance_exponent_left_bound, fragrance_exponent_right_bound),
+							local_search_chance,
+							StdRng::from_rng(thread_rng()).unwrap()
+						);
+						world.do_all_iterations(butterfly_num_iters);
+						println!("{}: Found optimum at {:?} = {}", function_name, world.best_solution.coordinates, function(world.best_solution));
+					}));
 				},
 				None => {
 					println!("No algorithm to run! Exiting.");
