@@ -40,8 +40,8 @@ impl<const N: usize> Bat<N> {
 
     fn move_bat<RngType: Rng>(&mut self, global_best_solution: VectorN<N>, random_source: &mut RngType, average_loudness: f64) {
         let frequency = random_source.gen_range(self.frequency_bounds.0..self.frequency_bounds.1);
-        self.velocity += (self.position - global_best_solution) * frequency;
-        self.position -= self.velocity; // According to all formulas this should be adding, not subtracting. However, adding produces awful results and makes bats divergent
+        self.velocity += (global_best_solution - self.position) * frequency;
+        self.position += self.velocity; // According to all formulas this should be adding, not subtracting. However, adding produces awful results and makes bats divergent
         if random_source.gen::<f64>() < self.current_pulse_rate {
             self.position += random_source.gen_range(-1.0..1.0) * average_loudness;
         }
