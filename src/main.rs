@@ -1,13 +1,13 @@
-use bat_optimizer::{bats::WorldState, functions};
+use bat_optimizer::{butterflies::WorldState, functions};
 
 fn main() {
 	let function_list = functions::create_function_list::<20>();
 	let function_object = function_list.get("schwefel").unwrap();
 	let mut world = WorldState::new(
-		20, function_object.get_function(), function_object.get_bounds(), (0.0, 1.0),
-		0.5, 0.1, 0.25, 0.1
+		20, function_object.get_function(), function_object.get_bounds(), 0.3,
+(0.1, 0.3), 0.8
 	);
-	world.do_all_iterations(1000000);
+	world.do_all_iterations(10000);
 	/*world.do_iteration(0);
 	println!("best solution after 0: {}", world.best_solution_value);
 	world.do_iteration(1);
