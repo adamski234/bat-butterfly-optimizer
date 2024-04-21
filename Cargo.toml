@@ -3,6 +3,10 @@ name = "swarm_optimizers"
 version = "0.1.0"
 edition = "2021"
 
+[workspace]
+members = ["stat_collector"]
+
+
 [dependencies]
 rand = "0.8"
 GSL = "7"

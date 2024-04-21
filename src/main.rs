@@ -125,7 +125,6 @@ fn main() {
         panic!("No functions given");
     }
     let test_functions = config.functions.into_iter().map(|s| {
-        println!("{}", s);
         return (s.clone(), builtin_fns.get(&s).unwrap());
     }).collect::<Vec<_>>();
 
