@@ -1,6 +1,23 @@
 use rand::{distributions::{Distribution, Uniform}, prelude::SliceRandom, Rng};
 
-use crate::vector::VectorN;
+use crate::vector::{QuickFold, VectorN};
+
+pub fn levy_step_generator<const N: usize, RngType: Rng>(distance: f64, _: f64, random_source: &mut RngType) -> VectorN<N> {
+    let mut content = [0.0; N];
+    content.fill_with(|| (0..100).map(|_| random_source.sample(rand_distr::StandardNormal)).fold(0.0, |ac, val: f64| ac + val));
+    // normalize
+    let magnitude = content.magnitude();
+
+    return VectorN::new(content.map(|val| val / magnitude).map(|val| val * distance));
+}
+
+pub fn levy_generator<const N: usize, RngType: Rng>(lambda: f64, beta: f64, random_source: &mut RngType) -> VectorN<N> {
+    let mut content = [0.0; N];
+    let mut generator = rgsl::Rng::new(rgsl::rng::algorithms::mrg()).unwrap();
+    generator.set(random_source.gen());
+    content.fill_with(|| generator.levy(lambda, beta));
+    return VectorN::new(content);
+}
 
 #[derive(Clone, Debug)]
 pub struct Butterfly<const N: usize> {

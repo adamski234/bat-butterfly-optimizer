@@ -112,6 +112,7 @@ impl<const N: usize> Default for VectorN<N> {
 pub trait QuickFold {
 	fn sum(&self) -> f64;
 	fn product(&self) -> f64;
+	fn magnitude(&self) -> f64;
 }
 
 impl<const N: usize> QuickFold for [f64; N] {
@@ -128,6 +129,13 @@ impl<const N: usize> QuickFold for [f64; N] {
 			result *= entry;
 		}
 		return result;
+	}
+	fn magnitude(&self) -> f64 {
+		let mut result = 0.0;
+		for entry in self {
+			result += entry.powi(2);
+		}
+		return result.sqrt();
 	}
 }
 
