@@ -1,4 +1,4 @@
-use rand::{distributions::{Distribution, Uniform}, rngs::ThreadRng, thread_rng, Rng};
+use rand::{distributions::{Distribution, Uniform}, rngs::StdRng, Rng};
 
 use crate::vector::VectorN;
 
@@ -77,6 +77,7 @@ pub struct WorldState<const N: usize, RngType: Rng> {
     initial_loudness: f64,
 }
 
+<<<<<<< HEAD
 impl<const N: usize> WorldState<N, ThreadRng> {
     pub fn new(bat_count: usize, 
                function: fn(VectorN<N>) -> f64, 
@@ -87,14 +88,16 @@ impl<const N: usize> WorldState<N, ThreadRng> {
                initial_loudness: f64, 
                loudness_cool_factor: f64) -> Self {
 
+=======
+impl<const N: usize> WorldState<N, StdRng> {
+    pub fn new(bat_count: usize, function: fn(VectorN<N>) -> f64, bounds: (f64, f64), frequency_bounds: (f64, f64), initial_pulse_rate: f64, pulse_rate_factor: f64, initial_loudness: f64, loudness_cool_factor: f64, mut random_source: rand::rngs::StdRng) -> Self {
+>>>>>>> 335382f229fd293091562a948fe454c74d89a4b0
         if bounds.0 >= bounds.1 {
             panic!("Incorrect order of bounds or zero size");
         }
         if frequency_bounds.0 >= frequency_bounds.1 {
             panic!("Incorrect order of frequency bounds or zero size");
         }
-
-        let mut random_source = thread_rng();
 
         let mut bats = Vec::with_capacity(bat_count);
         for _ in 0..bat_count {
