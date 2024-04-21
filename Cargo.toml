@@ -1,7 +1,9 @@
 [package]
-name = "bat_optimizer"
+name = "swarm_optimizers"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 rand = "0.8"
+clap = { version = "4", features = ["derive"] }
+num_cpus = "1"
