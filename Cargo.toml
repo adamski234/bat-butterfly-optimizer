@@ -9,7 +9,11 @@ members = ["stat_collector"]
 
 [dependencies]
 rand = "0.8"
-GSL = "7"
 rand_distr = "0.4"
 clap = { version = "4", features = ["derive"] }
 num_cpus = "1"
+
+[profile.release]
+debug = true
+lto = "fat" # Significantly slower linking but minor perf improvements
+codegen-units = 1 # Significantly slower linking but minor perf improvements

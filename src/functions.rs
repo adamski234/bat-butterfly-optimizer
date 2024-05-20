@@ -1,4 +1,4 @@
-use std::{f64::consts::{TAU, E}, collections::HashMap};
+use std::f64::consts::{E, TAU};
 
 use crate::vector::VectorN;
 use crate::vector::QuickFold;
@@ -15,30 +15,10 @@ fn ackley<const N: usize>(input: VectorN<N>) -> f64 {
 		E + 20.0;
 }
 
-struct Ackley {}
-impl<const N: usize> Function<N> for Ackley {
-	fn get_function(&self) -> fn(input: VectorN<N>) -> f64 {
-		return ackley;
-	}
-	fn get_bounds(&self) -> (f64, f64) {
-		return (-32.0, 32.0);
-	}
-}
-
 // functions 1
 fn schwefel<const N: usize>(input: VectorN<N>) -> f64 {
 	let absolutes = input.coordinates.map(f64::abs);
 	return absolutes.map(|a| a.powi(2)).sum() + absolutes.product();
-}
-
-struct Schwefel {}
-impl<const N: usize> Function<N> for Schwefel {
-	fn get_function(&self) -> fn(input: VectorN<N>) -> f64 {
-		return schwefel;
-	}
-	fn get_bounds(&self) -> (f64, f64) {
-		return (-10.0, 10.0);
-	}
 }
 
 // functions 1
@@ -48,31 +28,11 @@ fn brown<const N: usize>(input: VectorN<N>) -> f64 {
 	}).sum();
 }
 
-struct Brown {}
-impl<const N: usize> Function<N> for Brown {
-	fn get_function(&self) -> fn(input: VectorN<N>) -> f64 {
-		return brown;
-	}
-	fn get_bounds(&self) -> (f64, f64) {
-		return (-1.0, 4.0);
-	}
-}
-
 // functions 2
 fn rastrigin<const N: usize>(input: VectorN<N>) -> f64 {
 	return input.coordinates.map(|a| {
 		return a.powi(2) - 10.0 * (TAU * a).cos() + 10.0;
 	}).sum();
-}
-
-struct Rastrigin {}
-impl<const N: usize> Function<N> for Rastrigin {
-	fn get_function(&self) -> fn(input: VectorN<N>) -> f64 {
-		return rastrigin;
-	}
-	fn get_bounds(&self) -> (f64, f64) {
-		return (-5.12, 5.12);
-	}
 }
 
 // functions 2
@@ -82,39 +42,55 @@ fn schwefel2<const N: usize>(input: VectorN<N>) -> f64 {
 	}).sum();
 }
 
-struct Schwefel2 {}
-impl<const N: usize> Function<N> for Schwefel2 {
-	fn get_function(&self) -> fn(input: VectorN<N>) -> f64 {
-		return schwefel2;
-	}
-	fn get_bounds(&self) -> (f64, f64) {
-		return (-100.0, 100.0);
-	}
-}
-
 // functions 2
 fn solomon<const N: usize>(input: VectorN<N>) -> f64 {
 	let sum_of_squares = input.coordinates.map(|a| a.powi(2)).sum();
 	return 1.0 - (TAU * sum_of_squares.sqrt()).cos() + 0.1 * sum_of_squares.sqrt();
 }
 
-struct Solomon {}
-impl<const N: usize> Function<N> for Solomon {
-	fn get_function(&self) -> fn(input: VectorN<N>) -> f64 {
-		return solomon;
-	}
-	fn get_bounds(&self) -> (f64, f64) {
-		return (-100.0, 100.0);
-	}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Functions<const N: usize> {
+	Ackley,
+	Schwefel,
+	Brown,
+	Rastrigin,
+	Schwefel2,
+	Solomon,
 }
 
-pub fn create_function_list<const N: usize>() -> HashMap<String, Box<dyn Function<N>>> {
-	let mut result: HashMap<String, Box<dyn Function<N>>> = HashMap::new();
-	result.insert(String::from("ackley"), Box::new(Ackley {}));
-	result.insert(String::from("schwefel"), Box::new(Schwefel {}));
-	result.insert(String::from("brown"), Box::new(Brown {}));
-	result.insert(String::from("rastrigin"), Box::new(Rastrigin {}));
-	result.insert(String::from("schwefel2"), Box::new(Schwefel2 {}));
-	result.insert(String::from("solomon"), Box::new(Solomon {}));
-	return result;
+impl<const N: usize> Functions<N> {
+	pub fn make_from_name(name: &str) -> Self {
+		match name {
+			"ackley" => return Self::Ackley,
+			"schwefel" => return Self::Schwefel,
+			"brown" => return Self::Brown,
+			"rastrigin" => return Self::Rastrigin,
+			"schwefel2" => return Self::Schwefel2,
+			"solomon" => return Self::Solomon,
+			_ => panic!("Nonexistent function passed: `{name}`"),
+		}
+	}
+
+	pub fn get_bounds(self) -> (f64, f64) {
+		match self {
+			Self::Ackley => return (-32.0, 32.0),
+			Self::Schwefel => return (-10.0, 10.0),
+			Self::Brown => return (-1.0, 4.0),
+			Self::Rastrigin => return (-5.12, 5.12),
+			Self::Schwefel2 => return (-100.0, 100.0),
+			Self::Solomon => return (-100.0, 100.0),
+		}
+	}
+
+	pub fn calculate(self, input: VectorN<N>) -> f64 {
+		match self {
+			Functions::Ackley => return ackley(input),
+			Functions::Schwefel => return schwefel(input),
+			Functions::Brown => return brown(input),
+			Functions::Rastrigin => return rastrigin(input),
+			Functions::Schwefel2 => return schwefel2(input),
+			Functions::Solomon => return solomon(input),
+		}
+	}
 }

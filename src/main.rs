@@ -1,7 +1,7 @@
 #![feature(generic_arg_infer)]
 #![allow(clippy::needless_return)]
 
-use swarm_optimizers::{bats, butterflies};
+use swarm_optimizers::{bats, butterflies, functions::Functions};
 
 const FN_SIZE: usize = 20;
 
@@ -119,35 +119,33 @@ impl AddAssign<f64> for BatchRunData {
 }
 
 fn main() {
-    let builtin_fns =  swarm_optimizers::functions::create_function_list::<FN_SIZE>();
     let config = Config::parse();
     if config.functions.is_empty() {
         panic!("No functions given");
     }
     let test_functions = config.functions.into_iter().map(|s| {
-        return (s.clone(), builtin_fns.get(&s).unwrap());
+        return (Functions::<FN_SIZE>::make_from_name(&s), s);
     }).collect::<Vec<_>>();
 
     if let Some(tries) = config.try_count {
-        for (function_name, function) in test_functions {
+        for (function, function_name) in test_functions {
             let bounds = function.get_bounds();
-            let func = function.get_function();
             let tries_per_thread = tries.div_ceil(num_cpus::get());
             let mut threads = Vec::with_capacity(num_cpus::get());
             
             match config.command {
                 OptimizationAlgorithmCommand::Bats { bat_num_iters, 
-                                             bat_count, 
-                                             frequency_left_bound, 
-                                             frequency_right_bound, 
-                                             initial_pulse_rate, 
-                                             pulse_rate_factor, 
-                                             initial_loudness , 
-                                             loudness_cooling_rate
+                    bat_count, 
+                    frequency_left_bound, 
+                    frequency_right_bound, 
+                    initial_pulse_rate, 
+                    pulse_rate_factor, 
+                    initial_loudness , 
+                    loudness_cooling_rate
                 } => {
                     let world = bats::WorldState::new(
                         bat_count,
-                        func,
+                        function,
                         bounds,
                         (frequency_left_bound, frequency_right_bound),
                         initial_pulse_rate,
@@ -162,7 +160,7 @@ fn main() {
                             let mut run_stats = BatchRunData::new();
                             for _ in 0..tries_per_thread {
                                 thread_world.do_all_iterations(bat_num_iters);
-                                run_stats += func(thread_world.best_solution);
+                                run_stats += function.calculate(thread_world.best_solution);
                                 thread_world.reset();
                             }
                             return run_stats;
@@ -171,15 +169,15 @@ fn main() {
                 },
 
                 OptimizationAlgorithmCommand::Butterflies { butterfly_num_iters, 
-                                                                 butterfly_count, 
-                                                                 fragrance_multiplier, 
-                                                                 fragrance_exponent_left_bound,
-                                                                 fragrance_exponent_right_bound, 
-                                                                 local_search_chance 
+                    butterfly_count, 
+                    fragrance_multiplier, 
+                    fragrance_exponent_left_bound,
+                    fragrance_exponent_right_bound, 
+                    local_search_chance 
                 } => {
                     let world = butterflies::WorldState::new(
                         butterfly_count,
-                        func,
+                        function,
                         bounds,
                         fragrance_multiplier,
                         (fragrance_exponent_left_bound, fragrance_exponent_right_bound),
@@ -192,7 +190,7 @@ fn main() {
                             let mut run_stats = BatchRunData::new();
                             for _ in 0..tries_per_thread {
                                 thread_world.do_all_iterations(butterfly_num_iters);
-                                run_stats += func(thread_world.best_solution);
+                                run_stats += function.calculate(thread_world.best_solution);
                                 thread_world.reset();
                             }
                             return run_stats;
@@ -209,9 +207,8 @@ fn main() {
         }
     } else {
         let mut threads = Vec::new();
-        for (function_name, function) in test_functions {
+        for (function, function_name) in test_functions {
             let bounds = function.get_bounds();
-            let function = function.get_function();
             match config.command {
                 OptimizationAlgorithmCommand::Bats { bat_num_iters, bat_count, frequency_left_bound, frequency_right_bound, initial_pulse_rate, pulse_rate_factor, initial_loudness, loudness_cooling_rate } => {
                     threads.push(std::thread::spawn(move || {
@@ -227,7 +224,7 @@ fn main() {
                             StdRng::from_rng(thread_rng()).unwrap()
                         );
                         world.do_all_iterations(bat_num_iters);
-                        println!("{}: Found optimum at {:?} = {}", function_name, world.best_solution.coordinates, function(world.best_solution));
+                        println!("{}: Found optimum at {:?} = {}", function_name, world.best_solution.coordinates, function.calculate(world.best_solution));
                     }));
                 },
                 OptimizationAlgorithmCommand::Butterflies { 
@@ -249,7 +246,7 @@ fn main() {
                             StdRng::from_rng(thread_rng()).unwrap()
                         );
                         world.do_all_iterations(butterfly_num_iters);
-                        println!("{}: Found optimum at {:?} = {}", function_name, world.best_solution.coordinates, function(world.best_solution));
+                        println!("{}: Found optimum at {:?} = {}", function_name, world.best_solution.coordinates, function.calculate(world.best_solution));
                     }));
                 },
             }

@@ -1,6 +1,6 @@
 use rand::{distributions::{Distribution, Uniform}, rngs::StdRng, Rng};
 
-use crate::vector::VectorN;
+use crate::{functions::Functions, vector::VectorN};
 
 #[derive(Clone, Debug)]
 pub struct Bat<const N: usize> {
@@ -68,7 +68,7 @@ impl<const N: usize> Bat<N> {
 #[derive(Debug, Clone)]
 pub struct WorldState<const N: usize, RngType: Rng> {
     bats: Vec<Bat<N>>,
-    function: fn(VectorN<N>) -> f64,
+    function: Functions<N>,
     pub best_solution: VectorN<N>,
     pub best_solution_value: f64,
     bounds: (f64, f64), // lower, upper
@@ -78,7 +78,7 @@ pub struct WorldState<const N: usize, RngType: Rng> {
 }
 
 impl<const N: usize> WorldState<N, StdRng> {
-    pub fn new(bat_count: usize, function: fn(VectorN<N>) -> f64, bounds: (f64, f64), frequency_bounds: (f64, f64), initial_pulse_rate: f64, pulse_rate_factor: f64, initial_loudness: f64, loudness_cool_factor: f64, mut random_source: rand::rngs::StdRng) -> Self {
+    pub fn new(bat_count: usize, function: Functions<N>, bounds: (f64, f64), frequency_bounds: (f64, f64), initial_pulse_rate: f64, pulse_rate_factor: f64, initial_loudness: f64, loudness_cool_factor: f64, mut random_source: rand::rngs::StdRng) -> Self {
         if bounds.0 >= bounds.1 {
             panic!("Incorrect order of bounds or zero size");
         }
@@ -97,7 +97,7 @@ impl<const N: usize> WorldState<N, StdRng> {
         let mut best_solution = VectorN::default();
         let mut best_solution_value = f64::INFINITY;
         for bat in &mut bats {
-            let bat_value = function(bat.position);
+            let bat_value = function.calculate(bat.position);
             if bat_value < best_solution_value {
                 best_solution = bat.position;
                 best_solution_value = bat_value;
@@ -116,7 +116,7 @@ impl<const N: usize> WorldState<N, StdRng> {
         self.best_solution_value = f64::INFINITY;
         for bat in &mut self.bats {
             bat.reset(self.bounds.0, self.bounds.1, self.initial_pulse_rate, self.initial_loudness, &mut self.random_generator);
-            let bat_value = (self.function)(bat.position);
+            let bat_value = self.function.calculate(bat.position);
             if bat_value < self.best_solution_value {
                 self.best_solution_value = bat_value;
                 self.best_solution = bat.position;
@@ -133,7 +133,7 @@ impl<const N: usize> WorldState<N, StdRng> {
 
     pub fn update_best_known_solution(&mut self, iter_number: usize) {
         for bat in &mut self.bats {
-            let bat_value = (self.function)(bat.position);
+            let bat_value = self.function.calculate(bat.position);
             if bat_value < self.best_solution_value {
                 self.best_solution_value = bat_value;
                 self.best_solution = bat.position;

@@ -1,36 +1,19 @@
 use rand::{distributions::{Distribution, Uniform}, prelude::SliceRandom, Rng};
 
-use crate::vector::{QuickFold, VectorN};
-
-pub fn levy_step_generator<const N: usize, RngType: Rng>(distance: f64, _: f64, random_source: &mut RngType) -> VectorN<N> {
-    let mut content = [0.0; N];
-    content.fill_with(|| (0..100).map(|_| random_source.sample(rand_distr::StandardNormal)).fold(0.0, |ac, val: f64| ac + val));
-    // normalize
-    let magnitude = content.magnitude();
-
-    return VectorN::new(content.map(|val| val / magnitude).map(|val| val * distance));
-}
-
-pub fn levy_generator<const N: usize, RngType: Rng>(lambda: f64, beta: f64, random_source: &mut RngType) -> VectorN<N> {
-    let mut content = [0.0; N];
-    let mut generator = rgsl::Rng::new(rgsl::rng::algorithms::mrg()).unwrap();
-    generator.set(random_source.gen());
-    content.fill_with(|| generator.levy(lambda, beta));
-    return VectorN::new(content);
-}
+use crate::{functions::Functions, vector::VectorN};
 
 #[derive(Clone, Debug)]
 pub struct Butterfly<const N: usize> {
     position: VectorN<N>,
     fragrance_multiplier: f64,
     fragrance_value: f64, // modification as per slide 15
-    optimization_function: fn(VectorN<N>) -> f64,
+    optimization_function: Functions<N>,
     function_value: f64,
     function_bounds: (f64, f64),
 }
 
 impl<const N: usize> Butterfly<N> {
-    fn new<RngType: Rng>(function_bounds: (f64, f64), optimization_function: fn(VectorN<N>) -> f64, fragrance_multiplier: f64, random_source: &mut RngType) -> Self {
+    fn new<RngType: Rng>(function_bounds: (f64, f64), optimization_function: Functions<N>, fragrance_multiplier: f64, random_source: &mut RngType) -> Self {
         let mut coords_array = [0.0; N];
 
         let range = Uniform::from(function_bounds.0..function_bounds.1);
@@ -38,7 +21,7 @@ impl<const N: usize> Butterfly<N> {
         coords_array.fill_with(|| range.sample(random_source));
         
         let position = VectorN::new(coords_array);
-        let function_value = optimization_function(position);
+        let function_value = optimization_function.calculate(position);
 
         return Self {
             position, fragrance_multiplier,
@@ -50,21 +33,21 @@ impl<const N: usize> Butterfly<N> {
     fn move_butterfly_global<RngType: Rng>(&mut self, best_butterfly_position: VectorN<N>, fragrance_exponent: f64, best_iter_solution: f64, random_source: &mut RngType) {
         self.position += (best_butterfly_position * random_source.gen::<f64>().powi(2) - self.position) * (self.fragrance_multiplier * self.fragrance_value.powf(fragrance_exponent));
         self.position.clamp(self.function_bounds);
-        self.function_value = (self.optimization_function)(self.position);
+        self.function_value = self.optimization_function.calculate(self.position);
         self.fragrance_value = self.function_value / (best_iter_solution + f64::EPSILON);
     }
 
     fn move_butterfly_local<RngType: Rng>(&mut self, random_butterfly_position_1: VectorN<N>, random_butterfly_position_2: VectorN<N>, fragrance_exponent: f64, best_iter_solution: f64, random_source: &mut RngType) {
         self.position += (random_butterfly_position_1 * random_source.gen::<f64>().powi(2) - random_butterfly_position_2) * (self.fragrance_multiplier * self.fragrance_value.powf(fragrance_exponent));
         self.position.clamp(self.function_bounds);
-        self.function_value = (self.optimization_function)(self.position);
+        self.function_value = self.optimization_function.calculate(self.position);
         self.fragrance_value = self.function_value / (best_iter_solution + f64::EPSILON);
     }
 
     fn reset<RngType: Rng>(&mut self, random_source: &mut RngType) {
         let range = Uniform::from(self.function_bounds.0..self.function_bounds.1);
         self.position.coordinates.fill_with(|| range.sample(random_source));
-        self.function_value = (self.optimization_function)(self.position);
+        self.function_value = self.optimization_function.calculate(self.position);
         self.fragrance_value = self.function_value / (self.function_value + f64::EPSILON);
     }
 }
@@ -81,12 +64,13 @@ pub struct WorldState<const N: usize, RngType: Rng> {
 
 impl<const N: usize> WorldState<N, rand::rngs::StdRng> {
     pub fn new(pop_size: usize, 
-               function: fn(VectorN<N>) -> f64, 
-               bounds: (f64, f64), 
-               fragrance_multiplier: f64, 
-               fragrance_exponent_bounds: (f64, f64), 
-               local_search_chance: f64, 
-               mut random_source: rand::rngs::StdRng) -> Self {
+        function: Functions<N>,
+        bounds: (f64, f64), 
+        fragrance_multiplier: f64, 
+        fragrance_exponent_bounds: (f64, f64), 
+        local_search_chance: f64, 
+        mut random_source: rand::rngs::StdRng
+	) -> Self {
         if bounds.0 >= bounds.1 {
             panic!("Incorrect order of bounds or zero size");
         }
